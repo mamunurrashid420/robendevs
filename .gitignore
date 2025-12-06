@@ -138,3 +138,14 @@ K8S_SUMMARY.md
 K8S_TASK_COMPLETE.md
 K8S_VISUAL_GUIDE.md
 QUICK_FIXES.md
+
+
+k8s/cleanup.sh
+k8s/deploy.sh
+k8s/status.sh
+k8s/DEPLOYMENT_CHECKLIST.md
+k8s/KUBERNETES_DEPLOYMENT.md
+k8s/README.md
+k8s/FILE_INVENTORY.md
+k8s/kustomization.yaml
+k8s/PLATFORM_SERVICES.md

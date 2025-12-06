@@ -28,11 +28,16 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT_DEV: ${PORT_DEV:-8010}
+      # Database - Primary (Write)
       DB_HOST: postgres
+      DB_WRITE_URL: postgres
       DB_USER: ${DB_USER:-postgres}
       DB_PASS: ${DB_PASS:-postgres}
       DB_NAME: ${DB_NAME:-react_auth_db}
       DB_PORT: 5432
+      # Database - Replica (Read)
+      DB_READ_URL: postgres-replica
+      # API Config
       API_VERSION: ${API_VERSION:-v1}
       JWT_VERIFY_SECRET: ${JWT_VERIFY_SECRET:-your-verify-secret}
       JWT_SESSION_SECRET: ${JWT_SESSION_SECRET:-your-session-secret}
@@ -43,6 +48,17 @@ services:
       IMAGES_DIR: ${IMAGES_DIR:-images}
       API_URL_DEV: http://localhost:8010
       CLIENT_URL_DEV: http://localhost:3000
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-rabbitmq123}
+      # Elasticsearch
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
     ports:
       - "8010:8010"
     depends_on:
@@ -68,8 +84,94 @@ services:
       - app-network
     restart: unless-stopped
 
+  # ============================================
+  # Platform Services
+  # ============================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: react-auth-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: react-auth-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-rabbitmq123}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: react-auth-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Postgres Read Replica (simulated)
+  postgres-replica:
+    image: postgres:14-alpine
+    container_name: react-auth-postgres-replica
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_NAME:-react_auth_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  postgres_replica_data:
+  redis_data:
+  rabbitmq_data:
+  elasticsearch_data:
 
 networks:
   app-network:

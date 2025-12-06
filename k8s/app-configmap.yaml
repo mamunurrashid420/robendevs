@@ -7,13 +7,29 @@ data:
   NODE_ENV: "development"
   API_VERSION: "v1"
   PORT_DEV: "8010"
+  # Database - Primary (Write)
   DB_HOST: "postgres-service.dev.svc.cluster.local"
+  DB_WRITE_URL: "postgres-service.dev.svc.cluster.local"
   DB_PORT: "5432"
   DB_NAME: "react_auth_db"
+  # Database - Replica (Read)
+  DB_READ_URL: "postgres-read-service.dev.svc.cluster.local"
+  # Session
   SESSION_COOKIE_NAME: "sessionId"
   SESSION_ALGORITHM: "aes-192-cbc"
   PASSWORD_HASH_CYCLE: "10"
   IMAGES_DIR: "images"
+  # URLs
   API_URL_DEV: "http://backend-service.dev.svc.cluster.local:8010"
   CLIENT_URL_DEV: "http://frontend-service.dev.svc.cluster.local:80"
   REACT_APP_API_URL: "http://backend-service.dev.svc.cluster.local:8010"
+  # Redis
+  REDIS_HOST: "redis-service.dev.svc.cluster.local"
+  REDIS_PORT: "6379"
+  # RabbitMQ
+  RABBITMQ_HOST: "rabbitmq-service.dev.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_MANAGEMENT_PORT: "15672"
+  # Elasticsearch
+  ELASTICSEARCH_HOST: "elasticsearch-service.dev.svc.cluster.local"
+  ELASTICSEARCH_PORT: "9200"

@@ -1,0 +1,255 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - 'pre-release/v*'
+      - 'release/v*'
+  pull_request:
+    branches:
+      - master
+      - main
+
+env:
+  REGISTRY: docker.io
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/react-auth-frontend
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/react-auth-backend
+
+jobs:
+  # ============================================
+  # JOB 1: Build and Test
+  # ============================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            client/package-lock.json
+            apiserver/package-lock.json
+
+      # Frontend
+      - name: Install Frontend Dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: ./client
+        run: npm run build
+        env:
+          REACT_APP_API_URL: ${{ vars.API_URL || 'http://localhost:8010' }}
+
+      - name: Run Frontend Tests
+        working-directory: ./client
+        run: npm test -- --coverage --watchAll=false
+        continue-on-error: true
+
+      # Backend
+      - name: Install Backend Dependencies
+        working-directory: ./apiserver
+        run: npm ci
+
+      - name: Run Backend Lint
+        working-directory: ./apiserver
+        run: npm run lint --if-present
+        continue-on-error: true
+
+      - name: Run Backend Tests
+        working-directory: ./apiserver
+        run: npm test --if-present
+        continue-on-error: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            client/build/
+          retention-days: 1
+
+  # ============================================
+  # JOB 2: Build and Push Docker Images
+  # ============================================
+  docker-build-push:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push'
+    
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        id: vars
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "branch_name=${GITHUB_REF_NAME//\//-}" >> $GITHUB_OUTPUT
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG="${{ steps.vars.outputs.branch_name }}-${{ steps.vars.outputs.short_sha }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated tag: $TAG"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Build and Push Frontend
+      - name: Build & Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          build-args: |
+            REACT_APP_API_URL=${{ vars.API_URL || 'http://localhost:8010' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build and Push Backend
+      - name: Build & Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # JOB 3: Deploy to Kubernetes
+  # ============================================
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine deployment environment
+        id: env
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [[ "$BRANCH" == "master" || "$BRANCH" == "main" ]]; then
+            echo "namespace=dev" >> $GITHUB_OUTPUT
+            echo "environment=development" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == pre-release/v* ]]; then
+            echo "namespace=preprod" >> $GITHUB_OUTPUT
+            echo "environment=pre-production" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == release/v* ]]; then
+            echo "namespace=release" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "namespace=dev" >> $GITHUB_OUTPUT
+            echo "environment=development" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Deploying to: ${{ steps.env.outputs.namespace }}"
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace ${{ steps.env.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image tags in manifests
+        run: |
+          # Update frontend image
+          sed -i "s|image:.*react-auth-frontend.*|image: ${{ env.FRONTEND_IMAGE }}:${{ needs.docker-build-push.outputs.short_sha }}|g" k8s/frontend-deployment.yaml
+
+          # Update backend image
+          sed -i "s|image:.*react-auth-backend.*|image: ${{ env.BACKEND_IMAGE }}:${{ needs.docker-build-push.outputs.short_sha }}|g" k8s/backend-deployment.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Apply namespace-specific configs
+          kubectl apply -f k8s/namespace-dev.yaml
+          kubectl apply -f k8s/app-configmap.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/app-secrets.yaml -n ${{ steps.env.outputs.namespace }}
+
+          # Deploy database
+          kubectl apply -f k8s/postgres-pv.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/postgres-pvc.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/postgres-deployment.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/postgres-service.yaml -n ${{ steps.env.outputs.namespace }}
+
+          # Deploy backend
+          kubectl apply -f k8s/backend-deployment.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/backend-service.yaml -n ${{ steps.env.outputs.namespace }}
+
+          # Deploy frontend
+          kubectl apply -f k8s/frontend-deployment.yaml -n ${{ steps.env.outputs.namespace }}
+          kubectl apply -f k8s/frontend-service.yaml -n ${{ steps.env.outputs.namespace }}
+
+          # Deploy ingress
+          kubectl apply -f k8s/ingress-dev.yaml -n ${{ steps.env.outputs.namespace }}
+
+      - name: Wait for deployment rollout
+        run: |
+          kubectl rollout status deployment/backend-deployment -n ${{ steps.env.outputs.namespace }} --timeout=300s
+          kubectl rollout status deployment/frontend-deployment -n ${{ steps.env.outputs.namespace }} --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          echo "=== Pods Status ==="
+          kubectl get pods -n ${{ steps.env.outputs.namespace }}
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc -n ${{ steps.env.outputs.namespace }}
+          echo ""
+          echo "=== Ingress ==="
+          kubectl get ingress -n ${{ steps.env.outputs.namespace }}
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Namespace | ${{ steps.env.outputs.namespace }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ steps.env.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.docker-build-push.outputs.short_sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+
