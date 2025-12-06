@@ -130,7 +130,11 @@ dist
 # TernJS port file
 .tern-port
 
-.md 
-.sh
-.ps1
-
+CODEBASE_REVIEW.md
+ENV_FIX_SUMMARY.md
+ENV_SETUP.md
+K8S_COMPLETE.md
+K8S_SUMMARY.md
+K8S_TASK_COMPLETE.md
+K8S_VISUAL_GUIDE.md
+QUICK_FIXES.md
