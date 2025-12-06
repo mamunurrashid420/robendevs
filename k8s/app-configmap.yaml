@@ -10,6 +10,7 @@ data:
   DB_HOST: "postgres-service.dev.svc.cluster.local"
   DB_PORT: "5432"
   DB_NAME: "react_auth_db"
+  SESSION_COOKIE_NAME: "sessionId"
   SESSION_ALGORITHM: "aes-192-cbc"
   PASSWORD_HASH_CYCLE: "10"
   IMAGES_DIR: "images"

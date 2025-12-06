@@ -20,122 +20,120 @@ spec:
       labels:
         app: backend
     spec:
-      serviceAccountName: default
       containers:
-      - name: backend
-        image: mamunurrashid123/react-auth-backend:latest
-        imagePullPolicy: Always
-        workingDir: /app/apiserver
-        command: ["node", "index.js"]
-        ports:
-        - containerPort: 8010
-          name: http
-          protocol: TCP
-        env:
-        - name: NODE_ENV
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: NODE_ENV
-        - name: API_VERSION
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: API_VERSION
-        - name: PORT_DEV
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PORT_DEV
-        - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: DB_HOST
-        - name: DB_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: DB_PORT
-        - name: DB_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: DB_NAME
-        - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_USER
-        - name: DB_PASS
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASS
-        - name: JWT_VERIFY_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: JWT_VERIFY_SECRET
-        - name: JWT_SESSION_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: JWT_SESSION_SECRET
-        - name: SESSION_ENCRYPT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: SESSION_ENCRYPT_SECRET
-        - name: SESSION_ALGORITHM
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: SESSION_ALGORITHM
-        - name: PASSWORD_HASH_CYCLE
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PASSWORD_HASH_CYCLE
-        - name: IMAGES_DIR
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: IMAGES_DIR
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        volumeMounts:
-        - name: app-code
-          mountPath: /app/apiserver
-        - name: images-storage
-          mountPath: /app/apiserver/images
-        livenessProbe:
-          httpGet:
-            path: /api/v1/auth/check-auth
-            port: 8010
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /api/v1/auth/check-auth
-            port: 8010
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
-      volumes:
-      - name: app-code
-        emptyDir: {}
-      - name: images-storage
-        emptyDir: {}
-      initContainers:
-      - name: init-app-code
-        image: busybox:latest
-        command: ['sh', '-c', 'echo "Backend container initialized"']
+        - name: backend
+          image: mamunurrashid123/react-auth-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8010
+              name: http
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+            - name: API_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_VERSION
+            - name: PORT_DEV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PORT_DEV
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASS
+            - name: JWT_VERIFY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_VERIFY_SECRET
+            - name: JWT_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SESSION_SECRET
+            - name: SESSION_ENCRYPT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SESSION_ENCRYPT_SECRET
+            - name: SESSION_COOKIE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: SESSION_COOKIE_NAME
+            - name: SESSION_ALGORITHM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: SESSION_ALGORITHM
+            - name: PASSWORD_HASH_CYCLE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PASSWORD_HASH_CYCLE
+            - name: IMAGES_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: IMAGES_DIR
+            - name: API_URL_DEV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_URL_DEV
+            - name: CLIENT_URL_DEV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: CLIENT_URL_DEV
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
