@@ -21,47 +21,33 @@ spec:
         app: frontend
     spec:
       containers:
-      - name: frontend
-        image: mamunurrashid123/react-auth-frontend:latest
-        imagePullPolicy: Always
-        workingDir: /app/client
-        command: ["sh", "-c", "npm install && npm run build && npx serve -s build -l 3000"]
-        ports:
-        - containerPort: 3000
-          name: http
-          protocol: TCP
-        env:
-        - name: REACT_APP_API_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: REACT_APP_API_URL
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        volumeMounts:
-        - name: app-code
-          mountPath: /app/client
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
-      volumes:
-      - name: app-code
-        emptyDir: {}
+        - name: frontend
+          image: mamunurrashid123/react-auth-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
