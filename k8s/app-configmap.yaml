@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: namespace-dev
+data:
+  NODE_ENV: "development"
+  API_VERSION: "v1"
+  PORT_DEV: "8010"
+  DB_HOST: "postgres-service.namespace-dev.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "react_auth_db"
+  SESSION_ALGORITHM: "aes-192-cbc"
+  PASSWORD_HASH_CYCLE: "10"
+  IMAGES_DIR: "images"
+  API_URL_DEV: "http://backend-service.namespace-dev.svc.cluster.local:8010"
+  CLIENT_URL_DEV: "http://frontend-service.namespace-dev.svc.cluster.local:80"
+  REACT_APP_API_URL: "http://backend-service.namespace-dev.svc.cluster.local:8010"
