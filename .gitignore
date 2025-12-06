@@ -128,7 +128,7 @@ dist
 .dynamodb/
 
 # TernJS port file
-.tern-port
+# .tern-port
 
 CODEBASE_REVIEW.md
 ENV_FIX_SUMMARY.md
