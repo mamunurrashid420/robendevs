@@ -140,6 +140,7 @@ K8S_VISUAL_GUIDE.md
 QUICK_FIXES.md
 
 
+# Kubernetes files (if you want them in version control)
 k8s/cleanup.sh
 k8s/deploy.sh
 k8s/status.sh
