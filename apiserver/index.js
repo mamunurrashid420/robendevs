@@ -1,5 +1,8 @@
 const dotenv = require('dotenv')
-dotenv.config({ path: './.config.env' })
+dotenv.config()
+
+// Validate environment variables immediately
+require('./utils/validateEnv')
 
 // handle uncaught exceptions
 process.on("uncaughtException", err => {

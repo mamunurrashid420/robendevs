@@ -1,5 +1,13 @@
 const { createCipheriv, createDecipheriv, scryptSync } = require('crypto')
 const AppError = require('./appError')
+
+if (!process.env.SESSION_ENCRYPT_SECRET) {
+    throw new Error('SESSION_ENCRYPT_SECRET environment variable is required')
+}
+if (!process.env.SESSION_ALGORITHM) {
+    throw new Error('SESSION_ALGORITHM environment variable is required')
+}
+
 const key = scryptSync(process.env.SESSION_ENCRYPT_SECRET, 'salt', 24)
 const iv = Buffer.alloc(16, 0) // Initialization crypto vector
 

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: react-auth-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_NAME:-react_auth_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: react-auth-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT_DEV: ${PORT_DEV:-8010}
+      DB_HOST: postgres
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-react_auth_db}
+      DB_PORT: 5432
+      API_VERSION: ${API_VERSION:-v1}
+      JWT_VERIFY_SECRET: ${JWT_VERIFY_SECRET:-your-verify-secret}
+      JWT_SESSION_SECRET: ${JWT_SESSION_SECRET:-your-session-secret}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-sessionId}
+      SESSION_ENCRYPT_SECRET: ${SESSION_ENCRYPT_SECRET:-7EwNLyb6QQX7Mr0B7EwNLyb6QQX7Mr0B}
+      SESSION_ALGORITHM: ${SESSION_ALGORITHM:-aes-192-cbc}
+      PASSWORD_HASH_CYCLE: ${PASSWORD_HASH_CYCLE:-10}
+      IMAGES_DIR: ${IMAGES_DIR:-images}
+      API_URL_DEV: http://localhost:8010
+      CLIENT_URL_DEV: http://localhost:3000
+    ports:
+      - "8010:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apiserver:/app/apiserver
+      - /app/apiserver/node_modules
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: react-auth-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
