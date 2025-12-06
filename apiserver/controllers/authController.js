@@ -21,10 +21,35 @@ exports.login = catchAsync(async (req, res) => {
         .send({ status: "success", data: "" })
 })
 
-exports.checkAuth = catchAsync(async (req, res) => {
-    const data = await authService.checkUserSession(req.cookies[process.env.SESSION_COOKIE_NAME])
-    return res.status(200).send({ status: "success", data })
-})
+exports.checkAuth = async (req, res) => {
+    try {
+        const sessionCookie = req.cookies[process.env.SESSION_COOKIE_NAME]
+
+        // If no session cookie, return not authenticated (not an error)
+        if (!sessionCookie) {
+            return res.status(200).send({
+                status: "success",
+                data: null,
+                authenticated: false
+            })
+        }
+
+        const data = await authService.checkUserSession(sessionCookie)
+        return res.status(200).send({
+            status: "success",
+            data,
+            authenticated: true
+        })
+    } catch (error) {
+        // Session is invalid or expired - clear cookie and return not authenticated
+        res.clearCookie(process.env.SESSION_COOKIE_NAME)
+        return res.status(200).send({
+            status: "success",
+            data: null,
+            authenticated: false
+        })
+    }
+}
 
 exports.logout = (req, res) => {
     res.status(200)
